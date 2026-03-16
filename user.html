@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绿行积分 - 用户端</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5}
+    .header{background:linear-gradient(135deg,#4CAF50 0%,#8BC34A 100%);color:#fff;padding:20px}
+    .header h1{margin:0;font-size:24px}
+    .header .user-info{display:flex;justify-content:space-between;align-items:center;margin-top:15px}
+    .points-display{background:rgba(255,255,255,0.2);padding:10px 20px;border-radius:20px}
+    .points-display span{font-size:20px;font-weight:bold}
+    .nav{background:#fff;padding:0 10px;display:flex;gap:5px;border-bottom:1px solid #e0e0e0;overflow-x:auto}
+    .nav-item{padding:12px 16px;cursor:pointer;border-radius:8px;border:none;background:none;font-size:13px;font-weight:600;color:#333;white-space:nowrap}
+    .nav-item.active{background:#4CAF50;color:#fff}
+    .container{max-width:600px;margin:0 auto;padding:15px}
+    .card{background:#fff;padding:20px;border-radius:12px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .card h2{margin-top:0;margin-bottom:15px;font-size:18px;color:#333}
+    .btn{padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;width:100%}
+    .btn-primary{background:#4CAF50;color:#fff}
+    .btn-danger{background:#F44336;color:#fff}
+    .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:15px}
+    .stat-card{background:linear-gradient(135deg,#66BB6A 0%,#4CAF50 100%);color:#fff;padding:15px;border-radius:10px;text-align:center}
+    .stat-card h3{font-size:28px;margin:0}
+    .stat-card p{margin:5px 0 0;font-size:12px;opacity:.9}
+    .ride-info{background:#E8F5E9;padding:15px;border-radius:10px;margin-bottom:15px}
+    .ride-info-row{display:flex;justify-content:space-between;margin-bottom:8px}
+    .ride-info-row:last-child{margin-bottom:0}
+    .ride-info-label{color:#666;font-size:14px}
+    .ride-info-value{font-weight:600;color:#333}
+    .product-card{background:#fff;border-radius:10px;overflow:hidden;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .product-image{height:120px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:50px}
+    .product-info{padding:15px}
+    .product-name{font-weight:bold;font-size:16px;margin-bottom:8px}
+    .product-price{color:#F44336;font-size:18px;font-weight:bold}
+    .product-points{color:#FF9800;font-size:14px}
+    .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center}
+    .modal.show{display:flex}
+    .modal-content{background:#fff;padding:25px;border-radius:12px;width:90%;max-width:400px}
+    .page{display:none}
+    .page.active{display:block}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1>🌿 绿行积分</h1>
+    <div class="user-info">
+      <span id="user-nickname">你好，骑行者</span>
+      <div class="points-display">💰 <span id="user-points">0</span> 积分</div>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-item active" onclick="showPage('home')">🏠 首页</button>
+    <button class="nav-item" onclick="showPage('ride')">🚴 骑行</button>
+    <button class="nav-item" onclick="showPage('mall')">🛒 商城</button>
+    <button class="nav-item" onclick="showPage('profile')">👤 我的</button>
+  </nav>
+
+  <div class="container">
+    <div id="page-home" class="page active">
+      <div class="stat-grid">
+        <div class="stat-card"><h3 id="home-distance">0</h3><p>里程(公里)</p></div>
+        <div class="stat-card"><h3 id="home-rides">0</h3><p>骑行次数</p></div>
+        <div class="stat-card"><h3 id="home-points">0</h3><p>累计积分</p></div>
+        <div class="stat-card"><h3 id="home-level">青铜</h3><p>当前等级</p></div>
+      </div>
+      <div class="card"><h2>📊 今日数据</h2><div class="ride-info"><div class="ride-info-row"><span class="ride-info-label">今日里程</span><span class="ride-info-value">5.2 公里</span></div><div class="ride-info-row"><span class="ride-info-label">获得积分</span><span class="ride-info-value">+52 积分</span></div></div></div>
+      <div class="card"><h2>🔥 热门商品</h2><div id="hot-products"></div></div>
+    </div>
+
+    <div id="page-ride" class="page">
+      <div class="card"><h2>🗺️ 骑行地图</h2>
+        <div id="map-container" style="width:100%;height:300px;background:#e0e0e0;border-radius:8px;margin-bottom:15px;position:relative;overflow:hidden;">
+          <div id="map-placeholder" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+            <div style="font-size:60px;">🗺️</div>
+            <p style="color:#666;margin-top:10px;">点击"开始骑行"加载地图</p>
+          </div>
+          <div id="gift-container" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>
+        </div>
+        <div id="ride-status" class="ride-info" style="display:none;">
+          <div class="ride-info-row"><span class="ride-info-label">骑行状态</span><span class="ride-info-value">骑行中...</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">本次里程</span><span class="ride-info-value" id="current-distance">0.00 公里</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">本次时长</span><span class="ride-info-value" id="current-duration">00:00</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">获得积分</span><span class="ride-info-value" style="color:#4CAF50;" id="earned-points">+0 积分</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">收集礼包</span><span class="ride-info-value" style="color:#FF9800;" id="collected-gifts">0 个</span></div>
+        </div>
+        <button id="btn-ride" class="btn btn-primary" onclick="toggleRide()">开始骑行</button>
+      </div>
+      <div class="card"><h2>📜 骑行记录</h2><div id="ride-history"></div></div>
+    </div>
+
+    <div id="page-mall" class="page">
+      <div id="products-list"></div>
+    </div>
+
+    <div id="page-profile" class="page">
+      <div class="card"><h3 id="profile-nickname" style="margin-bottom:10px;">绿行骑士</h3><div class="stat-grid"><div class="stat-card"><h3 id="profile-points">0</h3><p>我的积分</p></div><div class="stat-card"><h3 id="profile-distance">0</h3><p>总里程</p></div></div></div>
+      <div class="card"><h2>📊 积分明细</h2><div id="points-history"></div></div>
+    </div>
+  </div>
+
+  <div id="modal-buy" class="modal"><div class="modal-content"><h3>购买商品</h3><div id="buy-product-info"></div><div class="ride-info" style="margin:15px 0;"><div class="ride-info-row"><span class="ride-info-label">商品价格</span><span class="ride-info-value" id="buy-price">¥0</span></div><div class="ride-info-row"><span class="ride-info-label">可抵扣积分</span><span class="ride-info-value" id="buy-points">0</span></div><div class="ride-info-row"><span class="ride-info-label">实际支付</span><span class="ride-info-value" style="color:#F44336;" id="buy-total">¥0</span></div></div><div style="display:flex;gap:10px;"><button class="btn" style="background:#fff;border:1px solid #e0e0e0;" onclick="closeModal('buy')">取消</button><button class="btn btn-primary" onclick="confirmBuy()">确认购买</button></div></div></div>
+
+  <script>
+    let user={id:1,nickname:'绿行骑士',points:5200,totalDistance:156.5,totalRides:23,level:2};
+    let rides=[{id:1,date:'2026-03-09',distance:5.2,duration:18,points:52},{id:2,date:'2026-03-08',distance:3.8,duration:14,points:38},{id:3,date:'2026-03-07',distance:6.5,duration:22,points:65}];
+    let products=[{id:1,name:'骑行头盔',price:128,points:640,icon:'🪖'},{id:2,name:'USB充电宝',price:99,points:495,icon:'🔋'},{id:3,name:'洗衣液2kg',price:29,points:145,icon:'🧴'},{id:4,name:'美团外卖券',price:10,points:500,icon:'🍔'}];
+    let pointsRecords=[{id:1,type:'ride',points:52,desc:'骑行5.2公里',date:'2026-03-09',balance:5200},{{id:2,type:'ride',points:38,desc:'骑行3.8公里',date:'2026-03-08',balance:5148}]];
+    let isRiding=false,rideInterval=null,currentDistance=0,currentDuration=0,selectedProduct=null;
+    let collectedGifts=0,giftInterval=null,map=null,userMarker=null;
+    const gifts=['🎁','💰','🎉','⭐','💎'];
+
+    function showPage(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');event.target.classList.add('active')}
+
+    function updateInfo(){document.getElementById('user-nickname').textContent='你好，'+user.nickname;document.getElementById('user-points').textContent=user.points;document.getElementById('profile-nickname').textContent=user.nickname;document.getElementById('profile-points').textContent=user.points;document.getElementById('profile-distance').textContent=user.totalDistance+'公里';document.getElementById('home-distance').textContent=user.totalDistance;document.getElementById('home-rides').textContent=user.totalRides;document.getElementById('home-points').textContent=user.points}
+
+    function renderHome(){updateInfo();document.getElementById('hot-products').innerHTML=products.slice(0,2).map(p=>`<div class="product-card" onclick="openBuy(${p.id})"><div class="product-image">${p.icon}</div><div class="product-info"><div class="product-name">${p.name}</div><div class="product-price">¥${p.price}</div><div class="product-points">可用${p.points}积分抵扣</div></div></div>`).join('')}
+
+    function renderRide(){document.getElementById('ride-history').innerHTML=rides.map(r=>`<div class="ride-info"><div class="ride-info-row"><span class="ride-info-label">日期</span><span class="ride-info-value">${r.date}</span></div><div class="ride-info-row"><span class="ride-info-label">里程</span><span class="ride-info-value">${r.distance}公里</span></div><div class="ride-info-row"><span class="ride-info-label">时长</span><span class="ride-info-value">${r.duration}分钟</span></div><div class="ride-info-row"><span class="ride-info-label">获得积分</span><span class="ride-info-value" style="color:#4CAF50;">+${r.points}积分</span></div></div>`).join('')}
+
+    function renderMall(){document.getElementById('products-list').innerHTML=products.map(p=>`<div class="product-card"><div class="product-image">${p.icon}</div><div class="product-info"><div class="product-name">${p.name}</div><div class="product-price">¥${p.price}</div><div class="product-points">可用${p.points}积分抵扣</div><button class="btn btn-primary" onclick="openBuy(${p.id})">立即购买</button></div></div>`).join('')}
+
+    function renderProfile(){document.getElementById('points-history').innerHTML=pointsRecords.map(r=>`<div class="ride-info"><div class="ride-info-row"><span class="ride-info-label">${r.desc}</span><span class="ride-info-value" style="color:${r.points>0?'#4CAF50':'#F44336'};">${r.points>0?'+':''}${r.points}</span></div><div class="ride-info-row"><span class="ride-info-label">日期</span><span class="ride-info-value">${r.date}</span></div><div class="ride-info-row"><span class="ride-info-label">余额</span><span class="ride-info-value">${r.balance}积分</span></div></div>`).join('')}
+
+    function toggleRide(){isRiding=!isRiding;const btn=document.getElementById('btn-ride');const statusDiv=document.getElementById('ride-status');if(isRiding){btn.textContent='结束骑行';btn.className='btn btn-danger';statusDiv.style.display='block';rideStartTime=Date.now();currentDistance=0;currentDuration=0;collectedGifts=0;initMap();rideInterval=setInterval(()=>{currentDuration+=1;currentDistance+=Math.random()*0.02;document.getElementById('current-distance').textContent=currentDistance.toFixed(2)+'公里';document.getElementById('current-duration').textContent=Math.floor(currentDuration/60)+':'+(currentDuration%60<10?'0':'')+(currentDuration%60);document.getElementById('earned-points').textContent='+'+Math.floor(currentDistance*10)+'积分'},1000);giftInterval=setInterval(spawnGift,5000)}else{clearInterval(rideInterval);clearInterval(giftInterval);btn.textContent='开始骑行';btn.className='btn btn-primary';const points=Math.floor(currentDistance*10);rides.unshift({id:rides.length+1,date:new Date().toISOString().split('T')[0],distance:parseFloat(currentDistance.toFixed(2)),duration:currentDuration,points:points});user.totalDistance+=currentDistance;user.totalRides+=1;user.points+=points;pointsRecords.unshift({id:pointsRecords.length+1,type:'ride',points:points,desc:'骑行'+currentDistance.toFixed(2)+'公里',date:new Date().toLocaleDateString(),balance:user.points});updateInfo();renderRide();renderProfile();renderHome();statusDiv.style.display='none';document.getElementById('map-placeholder').style.display='block';document.getElementById('gift-container').innerHTML='';alert(`骑行结束！本次骑行${currentDistance.toFixed(2)}公里，获得${points}积分，收集${collectedGifts}个礼包！`)}}
+
+    function initMap(){document.getElementById('map-placeholder').style.display='none';document.getElementById('map-container').innerHTML='<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><div id="map" style="width:100%;height:100%;"></div><div id="gift-container" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>';const L=window.L;map=L.map('map').setView([31.2304,121.4737],13);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);if(navigator.geolocation){navigator.geolocation.watchPosition(pos=>{const {latitude,longitude}=pos.coords;if(!userMarker){userMarker=L.marker([latitude,longitude]).addTo(map).bindPopup('🚴 你在这里')}else{userMarker.setLatLng([latitude,longitude])}map.setView([latitude,longitude],15)},err=>console.log('定位失败:',err),{enableHighAccuracy:true,maximumAge:0,timeout:5000})}else{alert('您的设备不支持GPS定位')}}
+
+    function spawnGift(){if(!isRiding)return;const container=document.getElementById('gift-container');const gift=document.createElement('div');const x=Math.random()*80+10;const y=Math.random()*70+10;const type=gifts[Math.floor(Math.random()*gifts.length)];gift.style.cssText=`position:absolute;left:${x}%;top:${y}%;font-size:30px;cursor:pointer;animation:bounce 0.5s ease-in-out infinite;pointer-events:auto;`;gift.textContent=type;gift.onclick=()=>{const points=Math.floor(Math.random()*20)+10;user.points+=points;collectedGifts++;document.getElementById('user-points').textContent=user.points;document.getElementById('collected-gifts').textContent=collectedGifts+' 个';gift.remove();alert(`🎉 恭喜！获得${points}积分！`)};container.appendChild(gift);setTimeout(()=>{if(gift.parentNode)gift.remove()},10000)}
+
+    function openBuy(pid){selectedProduct=products.find(p=>p.id===pid);if(!selectedProduct)return;const cash=selectedProduct.price*0.8;document.getElementById('buy-product-info').innerHTML=`<div style="text-align:center;font-size:50px;margin-bottom:10px;">${selectedProduct.icon}</div><h3 style="text-align:center;">${selectedProduct.name}</h3>`;document.getElementById('buy-price').textContent='¥'+selectedProduct.price;document.getElementById('buy-points').textContent=selectedProduct.points+'积分(¥'+(selectedProduct.price*0.2)+')';document.getElementById('buy-total').textContent='¥'+cash;openModal('buy')}
+
+    function confirmBuy(){if(user.points<selectedProduct.points){alert('积分不足！');return}user.points-=selectedProduct.points;pointsRecords.unshift({id:pointsRecords.length+1,type:'order',points:-selectedProduct.points,desc:'购买'+selectedProduct.name,date:new Date().toLocaleDateString(),balance:user.points});closeModal('buy');updateInfo();renderProfile();alert('购买成功！')}
+
+    function openModal(id){document.getElementById('modal-'+id).classList.add('show')}
+    function closeModal(id){document.getElementById('modal-'+id).classList.remove('show')}
+
+    updateInfo();renderHome();renderRide();renderMall();renderProfile();
+  </script>
+</body>
+</html>

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绿行积分 - 用户端</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+    
+    .header { background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%); color: #fff; padding: 20px; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header .user-info { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+    .points-display { background: rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 20px; }
+    .points-display span { font-size: 20px; font-weight: bold; }
+    
+    .nav { background: #fff; padding: 0 10px; display: flex; gap: 5px; border-bottom: 1px solid #e0e0e0; overflow-x: auto; }
+    .nav-item { padding: 12px 16px; cursor: pointer; border-radius: 8px; border: none; background: none; font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; }
+    .nav-item.active { background: #4CAF50; color: #fff; }
+    
+    .container { max-width: 600px; margin: 0 auto; padding: 15px; }
+    
+    .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .card h2 { margin-top: 0; margin-bottom: 15px; font-size: 18px; color: #333; }
+    
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; }
+    .btn-primary { background: #4CAF50; color: #fff; }
+    .btn-success { background: #66BB6A; color: #fff; }
+    .btn-danger { background: #F44336; color: #fff; }
+    .btn-warning { background: #FF9800; color: #fff; }
+    
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px; }
+    .stat-card { background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%); color: #fff; padding: 15px; border-radius: 10px; text-align: center; }
+    .stat-card h3 { font-size: 28px; margin: 0; }
+    .stat-card p { margin: 5px 0 0; font-size: 12px; opacity: 0.9; }
+    
+    .ride-info { background: #E8F5E9; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+    .ride-info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .ride-info-row:last-child { margin-bottom: 0; }
+    .ride-info-label { color: #666; font-size: 14px; }
+    .ride-info-value { font-weight: 600; color: #333; }
+    
+    .product-card { background: #fff; border-radius: 10px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .product-image { height: 150px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 50px; }
+    .product-info { padding: 15px; }
+    .product-name { font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+    .product-price { color: #F44336; font-size: 18px; font-weight: bold; }
+    .product-points { color: #FF9800; font-size: 14px; }
+    .product-stock { color: #999; font-size: 12px; }
+    
+    .order-card { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+    .order-no { font-size: 14px; color: #666; }
+    .order-status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status-pending { background: #FFF3E0; color: #FF9800; }
+    .status-paid { background: #E3F2FD; color: #2196F3; }
+    .status-shipped { background: #E8F5E9; color: #4CAF50; }
+    .status-completed { background: #F3E5F5; color: #9C27B0; }
+    
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tab-btn { flex: 1; padding: 10px; border: none; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; }
+    .tab-btn.active { background: #4CAF50; color: #fff; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-content { background: #fff; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 6px; color: #666; font-size: 14px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    
+    .level-badge { display: inline-block; padding: 6px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 10px; }
+    .level-bronze { background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%); color: #fff; }
+    .level-silver { background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%); color: #fff; }
+    .level-gold { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #fff; }
+    .level-platinum { background: linear-gradient(135deg, #E5E4E2 0%, #B9B9B9 100%); color: #333; }
+    .level-diamond { background: linear-gradient(135deg, #B9F2FF 0%, #00BFFF 100%); color: #fff; }
+    
+    .points-rules { background: #FFF8E1; padding: 15px; border-radius: 10px; font-size: 13px; color: #666; }
+    .points-rules h4 { margin: 0 0 10px 0; color: #FF9800; }
+    
+    .ride-active { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    .page { display: none; }
+    .page.active { display: block; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>🌿 绿行积分</h1>
+    <div class="user-info">
+      <span id="user-nickname">你好，骑行者</span>
+      <div class="points-display">💰 <span id="user-points">0</span> 积分</div>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-item active" onclick="showPage('home')">🏠 首页</button>
+    <button class="nav-item" onclick="showPage('ride')">🚴 骑行</button>
+    <button class="nav-item" onclick="showPage('mall')">🛒 商城</button>
+    <button class="nav-item" onclick="showPage('orders')">📦 订单</button>
+    <button class="nav-item" onclick="showPage('profile')">👤 我的</button>
+  </nav>
+
+  <div class="container">
+    <!-- 首页 -->
+    <div id="page-home" class="page active">
+      <div class="stat-grid">
+        <div class="stat-card"><h3 id="home-distance">0</h3><p>骑行里程(公里)</p></div>
+        <div class="stat-card"><h3 id="home-rides">0</h3><p>骑行次数</p></div>
+        <div class="stat-card"><h3 id="home-points">0</h3><p>累计积分</p></div>
+        <div class="stat-card"><h3 id="home-level">青铜</h3><p>当前等级</p></div>
+      </div>
+
+      <div class="card">
+        <h2>📊 今日数据</h2>
+        <div class="ride-info">
+          <div class="ride-info-row"><span class="ride-info-label">今日里程</span><span class="ride-info-value" id="today-distance">0 公里</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">获得积分</span><span class="ride-info-value" id="today-points">+0 积分</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">骑行时间</span><span class="ride-info-value" id="today-time">0 分钟</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎁 积分规则</h2>
+        <div class="points-rules">
+          <p>• 骑行 1 公里获得 <strong>10 积分</strong></p>
+          <p>• 积分可在商城抵扣 <strong>20%</strong> 现金</p>
+          <p>• 100 积分 ≈ 2 元（用于抵扣）</p>
+          <p>• 积分有效期 12 个月</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🔥 热门商品</h2>
+        <div id="hot-products"></div>
+      </div>
+    </div>
+
+    <!-- 骑行 -->
+    <div id="page-ride" class="page">
+      <div class="card">
+        <h2>🚴 开始骑行</h2>
+        <div id="ride-status" class="ride-info" style="display:none;">
+          <div class="ride-info-row"><span class="ride-info-label">骑行状态</span><span class="ride-info-value ride-active">骑行中...</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">当前速度</span><span class="ride-info-value" id="current-speed">0 km/h</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">本次里程</span><span class="ride-info-value" id="current-distance">0.00 公里</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">本次时长</span><span class="ride-info-value" id="current-duration">00:00</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">预计积分</span><span class="ride-info-value" id="estimated-points">+0 积分</span></div>
+        </div>
+        <button id="btn-ride" class="btn btn-primary" onclick="toggleRide()">开始骑行</button>
+      </div>
+
+      <div id="ride-map-container">
+        <div id="ride-map" style="height: 300px; border-radius: 10px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>📜 骑行记录</h2>
+        <div id="ride-history"></div>
+      </div>
+    </div>
+
+    <!-- 商城 -->
+    <div id="page-mall" class="page">
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="filterCategory('all')">全部</button>
+        <button class="tab-btn" onclick="filterCategory('equipment')">骑行装备</button>
+        <button class="tab-btn" onclick="filterCategory('electronics')">电子产品</button>
+        <button class="tab-btn" onclick="filterCategory('daily')">生活用品</button>
+        <button class="tab-btn" onclick="filterCategory('coupons')">优惠券</button>
+      </div>
+      <div id="products-list"></div>
+    </div>
+
+    <!-- 订单 -->
+    <div id="page-orders" class="page">
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="filterOrders('all')">全部</button>
+        <button class="tab-btn" onclick="filterOrders('pending')">待支付</button>
+        <button class="tab-btn" onclick="filterOrders('paid')">已支付</button>
+        <button class="tab-btn" onclick="filterOrders('shipped')">已发货</button>
+        <button class="tab-btn" onclick="filterOrders('completed')">已完成</button>
+      </div>
+      <div id="orders-list"></div>
+    </div>
+
+    <!-- 我的 -->
+    <div id="page-profile" class="page">
+      <div class="card">
+        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+          <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px;">👤</div>
+          <div style="margin-left: 15px;">
+            <h3 id="profile-nickname" style="margin: 0;">骑行者</h3>
+            <span id="profile-level" class="level-badge level-bronze">青铜骑士</span>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card"><h3 id="profile-points">0</h3><p>我的积分</p></div>
+          <div class="stat-card"><h3 id="profile-distance">0</h3><p>总里程</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📊 积分明细</h2>
+        <div id="points-history"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ 设置</h2>
+        <button class="btn" style="margin-bottom: 10px; background: #fff; border: 1px solid #e0e0e0;">个人信息</button>
+        <button class="btn" style="margin-bottom: 10px; background: #fff; border: 1px solid #e0e0e0;">地址管理</button>
+        <button class="btn" style="background: #fff; border: 1px solid #e0e0e0;">关于我们</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 购买商品弹窗 -->
+  <div id="modal-buy" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>购买商品</h3>
+        <button class="btn" style="width: auto; padding: 5px 15px;" onclick="closeModal('buy')">×</button>
+      </div>
+      <div id="buy-product-info"></div>
+      <div class="ride-info" style="margin-bottom: 15px;">
+        <div class="ride-info-row"><span class="ride-info-label">商品价格</span><span class="ride-info-value" id="buy-price">¥0</span></div>
+        <div class="ride-info-row"><span class="ride-info-label">可抵扣积分</span><span class="ride-info-value" id="buy-points">0</span></div>
+        <div class="ride-info-row"><span class="ride-info-label">实际支付</span><span class="ride-info-value" id="buy-total" style="color: #F44336;">¥0</span></div>
+        <div class="ride-info-row"><span class="ride-info-label">当前积分</span><span class="ride-info-value" id="buy-current">0</span></div>
+      </div>
+      <div class="form-group">
+        <label>选择地址</label>
+        <select id="buy-address">
+          <option>北京市朝阳区xxx街道xxx号</option>
+          <option>上海市浦东新区xxx路xxx号</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn" style="background: #fff; border: 1px solid #e0e0e0;" onclick="closeModal('buy')">取消</button>
+        <button class="btn btn-primary" onclick="confirmBuy()">确认购买</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // API基础配置
+    const API_BASE = 'http://localhost:3001/api';
+    
+    // 全局状态
+    let user = null;
+    let authToken = localStorage.getItem('authToken');
+    let rides = [];
+    let products = [];
+    let orders = [];
+    let pointsRecords = [];
+    
+    // 认证相关函数
+    async function apiRequest(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE}${url}`, {
+          ...options,
+          headers
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('API请求失败:', error);
+        throw error;
+      }
+    }
+    
+    // 用户认证
+    async function login(phone, code) {
+      try {
+        const response = await apiRequest('/user/login', {
+          method: 'POST',
+          body: JSON.stringify({ phone, code: '123456' }) // 模拟验证码
+        });
+        
+        if (response.success) {
+          authToken = response.data.token;
+          user = response.data.user;
+          localStorage.setItem('authToken', authToken);
+          localStorage.setItem('user', JSON.stringify(user));
+          return { success: true, user };
+        } else {
+          return { success: false, message: response.data.message };
+        }
+      } catch (error) {
+        return { success: false, message: '登录失败，请检查网络连接' };
+      }
+    }
+    
+    async function logout() {
+      authToken = null;
+      user = null;
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+    }
+    
+    async function loadUserData() {
+      try {
+        // 先从本地存储加载
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          user = JSON.parse(savedUser);
+        }
+        
+        if (authToken) {
+          // 从服务器同步最新数据
+          const response = await apiRequest(`/user/${user?.id || 1}`);
+          if (response.success) {
+            user = response.data;
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+        } else {
+          // 自动登录演示用户
+          await login('13800138000', '123456');
+        }
+      } catch (error) {
+        console.error('加载用户数据失败:', error);
+        // 使用默认演示数据
+        user = {
+          id: 1,
+          phone: '13800138000',
+          nickname: '绿行骑士',
+          points: 5200,
+          level: 'gold',
+          totalDistance: 156.5,
+          totalRides: 23,
+          avatar: '🚴'
+        };
+      }
+    }
+
+    let rides = [
+      {id: 1, date: '2026-03-09', distance: 5.2, duration: 18, points: 52, avgSpeed: 17.3},
+      {id: 2, date: '2026-03-08', distance: 3.8, duration: 14, points: 38, avgSpeed: 16.3},
+      {id: 3, date: '2026-03-07', distance: 6.5, duration: 22, points: 65, avgSpeed: 17.7}
+    ];
+
+    let products = [
+      {id: 1, name: '骑行头盔', price: 128, points: 640, stock: 50, category: 'equipment', icon: '🪖'},
+      {id: 2, name: '防滑骑行手套', price: 58, points: 290, stock: 100, category: 'equipment', icon: '🧤'},
+      {id: 3, name: 'USB充电宝 10000mAh', price: 99, points: 495, stock: 80, category: 'electronics', icon: '🔋'},
+      {id: 4, name: '蓝牙运动耳机', price: 168, points: 840, stock: 60, category: 'electronics', icon: '🎧'},
+      {id: 5, name: '洗衣液 2kg', price: 29, points: 145, stock: 200, category: 'daily', icon: '🧴'},
+      {id: 6, name: '抽纸 12包', price: 19, points: 95, stock: 300, category: 'daily', icon: '🧻'},
+      {id: 7, name: '美团外卖券', price: 10, points: 500, stock: 1000, category: 'coupons', icon: '🍔'},
+      {id: 8, name: '滴滴打车券', price: 15, points: 750, stock: 500, category: 'coupons', icon: '🚗'}
+    ];
+
+    let orders = [
+      {id: 1, no: 'GD20260310001', productName: '骑行头盔', productIcon: '🪖', price: 128, pointsUsed: 640, total: 128, status: 'shipped', date: '2026-03-09 14:30'},
+      {id: 2, no: 'GD20260309002', productName: '洗衣液 2kg', productIcon: '🧴', price: 29, pointsUsed: 145, total: 29, status: 'completed', date: '2026-03-08 10:20'}
+    ];
+
+    let pointsRecords = [
+      {id: 1, type: 'ride', points: 52, description: '骑行 5.2公里', date: '2026-03-09 18:30', balance: 5200},
+      {id: 2, type: 'ride', points: 38, description: '骑行 3.8公里', date: '2026-03-08 12:15', balance: 5148},
+      {id: 3, type: 'order', points: -145, description: '购买洗衣液 2kg', date: '2026-03-08 10:20', balance: 5110},
+      {id: 4, type: 'ride', points: 65, description: '骑行 6.5公里', date: '2026-03-07 16:45', balance: 5255}
+    ];
+
+    let isRiding = false;
+    let rideInterval = null;
+    let rideStartTime = null;
+    let currentDistance = 0;
+    let currentDuration = 0;
+    let rideMap = null;
+    let ridePolyline = null;
+    let rideMarkers = [];
+    let selectedProduct = null;
+    
+    // 等级配置
+    const levelConfig = {
+      bronze: {name: '青铜骑士', class: 'level-bronze', minPoints: 0},
+      silver: {name: '白银骑士', class: 'level-silver', minPoints: 1000},
+      gold: {name: '黄金骑士', class: 'level-gold', minPoints: 5000},
+      platinum: {name: '铂金骑士', class: 'level-platinum', minPoints: 20000},
+      diamond: {name: '钻石骑士', class: 'level-diamond', minPoints: 100000}
+    };
+    
+    // 数据加载函数
+    async function loadRides() {
+      try {
+        const response = await apiRequest(`/rides?userId=${user.id}`);
+        if (response.success) {
+          rides = response.data;
+        } else {
+          // 使用模拟数据
+          rides = [
+            {id: 1, date: '2026-03-09', distance: 5.2, duration: 18, points: 52, avgSpeed: 17.3, deviceId: 'KG12-1001'},
+            {id: 2, date: '2026-03-08', distance: 3.8, duration: 14, points: 38, avgSpeed: 16.3, deviceId: 'KG12-1002'},
+            {id: 3, date: '2026-03-07', distance: 6.5, duration: 22, points: 65, avgSpeed: 17.7, deviceId: 'KG12-1001'}
+          ];
+        }
+      } catch (error) {
+        console.error('加载骑行记录失败:', error);
+        rides = [];
+      }
+    }
+    
+    async function loadProducts() {
+      try {
+        const response = await apiRequest('/products');
+        if (response.success) {
+          products = response.data;
+        } else {
+          // 使用模拟数据
+          products = [
+            {id: 1, name: '环保水壶', icon: '🍶', price: 29, points: 580, stock: 50, category: 'goods'},
+            {id: 2, name: '运动手套', icon: '🧤', price: 19, points: 380, stock: 100, category: 'goods'},
+            {id: 3, name: '骑行背包', icon: '🎒', price: 89, points: 1780, stock: 30, category: 'goods'}
+          ];
+        }
+      } catch (error) {
+        console.error('加载商品列表失败:', error);
+        products = [];
+      }
+    }
+    
+    async function loadOrders() {
+      try {
+        const response = await apiRequest(`/orders?userId=${user.id}`);
+        if (response.success) {
+          orders = response.data;
+        } else {
+          // 使用模拟数据
+          orders = [
+            {id: 1, no: 'GD20260310001', productName: '环保水壶', productIcon: '🍶', price: 29, points: 580, total: 29, status: 'shipped', date: '2026-03-09 14:30'}
+          ];
+        }
+      } catch (error) {
+        console.error('加载订单列表失败:', error);
+        orders = [];
+      }
+    }
+    
+    async function loadPointsRecords() {
+      try {
+        const response = await apiRequest('/points/history?userId=' + user.id);
+        if (response.success) {
+          pointsRecords = response.data;
+        } else {
+          pointsRecords = [];
+        }
+      } catch (error) {
+        console.error('加载积分记录失败:', error);
+        pointsRecords = [];
+      }
+    }
+    
+    async function loadStats() {
+      try {
+        const response = await apiRequest(`/stats?userId=${user.id}`);
+        if (response.success) {
+          return response.data;
+        }
+      } catch (error) {
+        console.error('加载统计数据失败:', error);
+      }
+      return null;
+    }
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      event.target.classList.add('active');
+      
+      if (pageId === 'ride' && !rideMap) {
+        setTimeout(() => {
+          rideMap = L.map('ride-map').setView([39.9042, 116.4074], 14);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(rideMap);
+        }, 100);
+      }
+    }
+
+    function updateUserInfo() {
+      if (!user) return;
+      
+      document.getElementById('user-nickname').textContent = '你好，' + user.nickname;
+      document.getElementById('user-points').textContent = user.points || 0;
+      document.getElementById('profile-nickname').textContent = user.nickname;
+      document.getElementById('profile-points').textContent = user.points || 0;
+      document.getElementById('profile-distance').textContent = (user.totalDistance || 0) + ' 公里';
+      
+      const level = levelConfig[user.level] || levelConfig.bronze;
+      document.getElementById('home-level').textContent = level.name.split(' ')[0];
+      document.getElementById('profile-level').textContent = level.name;
+      document.getElementById('profile-level').className = 'level-badge ' + level.class;
+      
+      document.getElementById('home-distance').textContent = (user.totalDistance || 0).toFixed(1);
+      document.getElementById('home-rides').textContent = user.totalRides || 0;
+      document.getElementById('home-points').textContent = user.points || 0;
+    }
+
+    function renderHome() {
+      updateUserInfo();
+      
+      const todayRides = rides.slice(0, 1);
+      const todayDistance = todayRides.reduce((sum, r) => sum + r.distance, 0);
+      const todayPoints = todayRides.reduce((sum, r) => sum + r.points, 0);
+      const todayTime = todayRides.reduce((sum, r) => sum + r.duration, 0);
+      
+      document.getElementById('today-distance').textContent = todayDistance + ' 公里';
+      document.getElementById('today-points').textContent = '+' + todayPoints + ' 积分';
+      document.getElementById('today-time').textContent = todayTime + ' 分钟';
+      
+      const hotProducts = document.getElementById('hot-products');
+      hotProducts.innerHTML = products.slice(0, 3).map(p => `
+        <div class="product-card" onclick="openBuyModal(${p.id})" style="cursor:pointer;">
+          <div class="product-image">${p.icon}</div>
+          <div class="product-info">
+            <div class="product-name">${p.name}</div>
+            <div class="product-price">¥${p.price}</div>
+            <div class="product-points">可用 ${p.points} 积分抵扣</div>
+            <div class="product-stock">库存: ${p.stock}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderRideHistory() {
+      const container = document.getElementById('ride-history');
+      container.innerHTML = rides.map(r => `
+        <div class="ride-info">
+          <div class="ride-info-row"><span class="ride-info-label">日期</span><span class="ride-info-value">${r.date}</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">里程</span><span class="ride-info-value">${r.distance} 公里</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">时长</span><span class="ride-info-value">${r.duration} 分钟</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">平均速度</span><span class="ride-info-value">${r.avgSpeed} km/h</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">获得积分</span><span class="ride-info-value" style="color:#4CAF50;">+${r.points} 积分</span></div>
+        </div>
+      `).join('');
+    }
+
+    function renderProducts(category = 'all') {
+      const filtered = category === 'all' ? products : products.filter(p => p.category === category);
+      const container = document.getElementById('products-list');
+      container.innerHTML = filtered.map(p => `
+        <div class="product-card">
+          <div class="product-image">${p.icon}</div>
+          <div class="product-info">
+            <div class="product-name">${p.name}</div>
+            <div class="product-price">¥${p.price}</div>
+            <div class="product-points">可用 ${p.points} 积分抵扣 ¥${p.price * 0.2}</div>
+            <div class="product-stock">库存: ${p.stock}</div>
+            <button class="btn btn-primary" onclick="openBuyModal(${p.id})">立即购买</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterCategory(category) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderProducts(category);
+    }
+
+    function renderOrders(status = 'all') {
+      const filtered = status === 'all' ? orders : orders.filter(o => o.status === status);
+      const container = document.getElementById('orders-list');
+      
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无订单</div>';
+        return;
+      }
+      
+      const statusMap = {
+        pending: {text: '待支付', class: 'status-pending'},
+        paid: {text: '已支付', class: 'status-paid'},
+        shipped: {text: '已发货', class: 'status-shipped'},
+        completed: {text: '已完成', class: 'status-completed'}
+      };
+      
+      container.innerHTML = filtered.map(o => `
+        <div class="order-card">
+          <div class="order-header">
+            <span class="order-no">${o.no}</span>
+            <span class="order-status ${statusMap[o.status].class}">${statusMap[o.status].text}</span>
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:10px;">
+            <span style="font-size:30px;margin-right:10px;">${o.productIcon}</span>
+            <div>
+              <div style="font-weight:bold;">${o.productName}</div>
+              <div style="color:#666;font-size:12px;">${o.date}</div>
+            </div>
+          </div>
+          <div class="ride-info-row"><span class="ride-info-label">商品价格</span><span class="ride-info-value">¥${o.price}</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">积分抵扣</span><span class="ride-info-value">-${o.pointsUsed} 积分</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">实际支付</span><span class="ride-info-value" style="color:#F44336;">¥${o.total}</span></div>
+        </div>
+      `).join('');
+    }
+
+    function filterOrders(status) {
+      document.querySelectorAll('#page-orders .tab-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderOrders(status);
+    }
+
+    function renderPointsHistory() {
+      const container = document.getElementById('points-history');
+      container.innerHTML = pointsRecords.map(r => `
+        <div class="ride-info">
+          <div class="ride-info-row"><span class="ride-info-label">${r.description}</span><span class="ride-info-value" style="color:${r.points > 0 ? '#4CAF50' : '#F44336'};">${r.points > 0 ? '+' : ''}${r.points}</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">时间</span><span class="ride-info-value">${r.date}</span></div>
+          <div class="ride-info-row"><span class="ride-info-label">余额</span><span class="ride-info-value">${r.balance} 积分</span></div>
+        </div>
+      `).join('');
+    }
+
+    function toggleRide() {
+      isRiding = !isRiding;
+      const btn = document.getElementById('btn-ride');
+      const statusDiv = document.getElementById('ride-status');
+      
+      if (isRiding) {
+        btn.textContent = '结束骑行';
+        btn.className = 'btn btn-danger';
+        statusDiv.style.display = 'block';
+        rideStartTime = Date.now();
+        currentDistance = 0;
+        currentDuration = 0;
+        
+        rideInterval = setInterval(() => {
+          currentDuration += 1;
+          currentDistance += Math.random() * 0.02;
+          const speed = 15 + Math.random() * 10;
+          
+          document.getElementById('current-speed').textContent = speed.toFixed(1) + ' km/h';
+          document.getElementById('current-distance').textContent = currentDistance.toFixed(2) + ' 公里';
+          document.getElementById('current-duration').textContent = formatTime(currentDuration);
+          document.getElementById('estimated-points').textContent = '+' + Math.floor(currentDistance * 10) + ' 积分';
+        }, 1000);
+      } else {
+        clearInterval(rideInterval);
+        btn.textContent = '开始骑行';
+        btn.className = 'btn btn-primary';
+        
+        const points = Math.floor(currentDistance * 10);
+        const newRide = {
+          id: rides.length + 1,
+          date: new Date().toISOString().split('T')[0],
+          distance: parseFloat(currentDistance.toFixed(2)),
+          duration: currentDuration,
+          points: points,
+          avgSpeed: currentDistance > 0 ? (currentDistance / (currentDuration / 60)).toFixed(1) : 0
+        };
+        
+        rides.unshift(newRide);
+        user.totalDistance += newRide.distance;
+        user.totalRides += 1;
+        user.points += points;
+        pointsRecords.unshift({
+          id: pointsRecords.length + 1,
+          type: 'ride',
+          points: points,
+          description: `骑行 ${newRide.distance}公里`,
+          date: new Date().toLocaleString(),
+          balance: user.points
+        });
+        
+        updateUserInfo();
+        renderRideHistory();
+        renderPointsHistory();
+        renderHome();
+        
+        statusDiv.style.display = 'none';
+        alert(`骑行结束！本次骑行 ${newRide.distance} 公里，获得 ${points} 积分！`);
+      }
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function openBuyModal(productId) {
+      selectedProduct = products.find(p => p.id === productId);
+      if (!selectedProduct) return;
+      
+      const cashPay = selectedProduct.price * 0.8;
+    
+    document.getElementById('buy-product-info').innerHTML = `
+      <div style="text-align:center;font-size:50px;margin-bottom:15px;">${selectedProduct.icon}</div>
+      <h3 style="text-align:center;">${selectedProduct.name}</h3>
+    `;
+    document.getElementById('buy-price').textContent = '¥' + selectedProduct.price;
+    document.getElementById('buy-points').textContent = pointsRequired + ' 积分 (¥' + (selectedProduct.price * 0.2) + ')';
+      document.getElementById('buy-total').textContent = '¥' + cashPay;
+      document.getElementById('buy-current').textContent = user.points + ' 积分';
+      
+      openModal('buy');
+    }
+
+function confirmBuy() {
+  const pointsRequired = selectedProduct.price * 0.2 / 0.02;
+  if (user.points < pointsRequired) {
+    alert('积分不足！');
+    return;
+  }
+      
+      const cashPay = selectedProduct.price * 0.8;
+      const newOrder = {
+        id: orders.length + 1,
+        no: 'GD' + new Date().toISOString().slice(0,10).replace(/-/g,'') + String(orders.length + 1).padStart(3,'0'),
+        productName: selectedProduct.name,
+        productIcon: selectedProduct.icon,
+        price: selectedProduct.price,
+        pointsUsed: selectedProduct.points,
+        total: cashPay,
+        status: 'paid',
+        date: new Date().toLocaleString()
+      };
+      
+      orders.unshift(newOrder);
+      user.points -= selectedProduct.points;
+      pointsRecords.unshift({
+        id: pointsRecords.length + 1,
+        type: 'order',
+        points: -selectedProduct.points,
+        description: `购买 ${selectedProduct.name}`,
+        date: new Date().toLocaleString(),
+        balance: user.points
+      });
+      
+      closeModal('buy');
+      updateUserInfo();
+      renderPointsHistory();
+      renderOrders();
+      
+      alert('购买成功！订单号: ' + newOrder.no);
+    }
+
+    function openModal(id) {
+      document.getElementById('modal-' + id).classList.add('show');
+    }
+
+    function closeModal(id) {
+      document.getElementById('modal-' + id).classList.remove('show');
+    }
+
+    // 初始化
+    updateUserInfo();
+    renderHome();
+    renderRideHistory();
+    renderProducts();
+    renderOrders();
+    renderPointsHistory();
+  </script>
+</body>
+</html>
